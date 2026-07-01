@@ -1,0 +1,24 @@
+services:
+ backend:
+  build: ./backend
+  container_name: backend
+  expose:
+    - "5000"
+  env_file:
+    - ./backend/.env
+  networks:
+    - secure-network
+
+ frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "80:8080"
+    depends_on:
+      - backend
+    networks:
+      - secure-network
+
+networks:
+  secure-network:
+    driver: bridge

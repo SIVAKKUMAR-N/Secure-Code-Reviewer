@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  code {
+    font-family: 'Fira Code', monospace;
+  }
+}
+
+@layer components {
+  /* Button variants */
+  .btn-primary {
+    @apply bg-primary-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors duration-200;
+  }
+  
+  .btn-danger {
+    @apply bg-critical-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-critical-700 transition-colors duration-200;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl shadow-card p-6 transition-shadow duration-200 hover:shadow-card-hover;
+  }
+  
+  /* Severity badges */
+  .badge-critical {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-critical-100 text-critical-700;
+  }
+  
+  .badge-high {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-high-100 text-high-700;
+  }
+  
+  .badge-medium {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-medium-100 text-medium-700;
+  }
+  
+  .badge-low {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-low-100 text-low-700;
+  }
+  
+  /* Input styles */
+  .input {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all duration-200;
+  }
+  
+  /* Loading animation */
+  .spinner {
+    @apply inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin;
+  }
+}
+
+@layer utilities {
+  /* Custom scrollbar */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded hover:bg-gray-400;
+  }
+  
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-primary-400;
+  }
+}
+
+/* Monaco Editor custom styles */
+.monaco-editor-wrapper {
+  @apply border border-gray-300 rounded-lg overflow-hidden;
+}
+
+/* Toast notifications positioning */
+.react-hot-toast {
+  @apply font-sans;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}

@@ -1,0 +1,37 @@
+FROM node:24-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+# Install SBOM generator
+RUN npm install -g @cyclonedx/cyclonedx-npm
+
+COPY . .
+
+# Generate SBOM
+RUN cyclonedx-npm --output-file sbom.json
+
+# =========================
+# Runtime Stage
+# =========================
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app .
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Change ownership
+RUN chown -R appuser:appgroup /app
+
+# Switch user
+USER appuser
+
+EXPOSE 5000
+
+CMD ["npm", "start"]
