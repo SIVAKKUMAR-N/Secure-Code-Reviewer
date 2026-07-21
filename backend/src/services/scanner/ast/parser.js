@@ -1,44 +1,19 @@
-/**
- * AST Parser
- * Parses JavaScript and TypeScript source code into an Abstract Syntax Tree (AST).
- * 
- * Educational Context:
- * 1. Why AST is more accurate than regex:
- *    - Regex scans code line-by-line as flat strings, completely blind to syntax semantics, 
- *      scopes, comments, or dynamic blocks.
- *    - AST parses code into a hierarchical tree structure representing the grammar. This 
- *      allows us to reliably identify specific function calls (e.g. `exec`), verify if their 
- *      arguments are dynamic (e.g. binary string concat or template literals), and ignore matches 
- *      inside strings/comments or variables of the same name defined in different scopes.
- * 
- * 2. Why Regex is still useful:
- *    - Regex is lightweight, extremely fast, and language-agnostic.
- *    - It is ideal for signature-based checks like hardcoded secrets, API tokens, and weak 
- *      hashing algorithms (like MD5) where deep structural context is unnecessary.
- *    - It also serves as a robust fallback if the source code contains syntax errors and fails 
- *      to parse into an AST.
- * 
- * 3. How hybrid scanning improves SAST:
- *    - A hybrid engine provides the "best of both worlds": AST delivers precise structural analysis 
- *      for complex sinks (reducing false positives/negatives), while Regex provides high-speed, 
- *      broad coverage for secrets, configs, and non-AST-supported languages.
- */
-
+const path = require('path');
 const parser = require('@babel/parser');
 const logger = require('../../../utils/logger');
 
 /**
- * Parse source code into an AST
+ * Parse source code into an AST with language-appropriate Babel plugins
  * @param {string} code - Source code text
- * @param {string} filename - Filename (to determine typescript plugins)
+ * @param {string} filename - Filename (used to determine TypeScript and JSX plugins)
  * @returns {Object} Babel AST
  */
 function parse(code, filename = 'code.js') {
-  const isTypeScript = filename.endsWith('.ts') || filename.endsWith('.tsx');
-  
-  // Robust plugins configuration to support modern syntax and features
+  const ext = path.extname(filename).toLowerCase();
+  const isTs = ext === '.ts' || ext === '.tsx' || filename.endsWith('.ts') || filename.endsWith('.tsx');
+  const isJsx = ext === '.jsx' || ext === '.tsx' || filename.endsWith('.jsx') || filename.endsWith('.tsx');
+
   const plugins = [
-    'jsx',
     'classProperties',
     'classPrivateProperties',
     'classPrivateMethods',
@@ -62,14 +37,19 @@ function parse(code, filename = 'code.js') {
     'topLevelAwait'
   ];
 
-  if (isTypeScript) {
+  if (isTs) {
     plugins.push('typescript');
+  }
+
+  // Include JSX plugin for .jsx and .tsx, or non-TS files (.js)
+  if (isJsx || !isTs) {
+    plugins.push('jsx');
   }
 
   const parseOptions = {
     sourceType: 'module',
-    plugins: plugins,
-    errorRecovery: true, // Recover from syntax errors where possible
+    plugins,
+    errorRecovery: true, // Recover from minor syntax errors where possible
     attachComment: true,
     tokens: true,
     locations: true,
@@ -79,13 +59,13 @@ function parse(code, filename = 'code.js') {
   try {
     return parser.parse(code, parseOptions);
   } catch (err) {
-    logger.debug(`Babel ES module parse failed, retrying in script mode: ${err.message}`);
+    logger.debug(`Babel module parse failed for ${filename}, retrying in script mode: ${err.message}`);
     try {
       parseOptions.sourceType = 'script';
       return parser.parse(code, parseOptions);
     } catch (innerErr) {
-      logger.error(`Babel parse error in script mode: ${innerErr.message}`);
-      throw new Error(`Babel parsing failed: ${innerErr.message}`);
+      logger.debug(`Babel parsing failed for ${filename}: ${innerErr.message}`);
+      throw new Error(`Babel parsing failed in ${filename}: ${innerErr.message}`);
     }
   }
 }

@@ -1,12 +1,14 @@
-const Scan = require('../models/Scan');
-const PDFGenerator = require('../utils/pdfGenerator');
+const MongoStorage = require('../storage/MongoStorage');
+const PDFReporter = require('../reporters/PDFReporter');
 const logger = require('../utils/logger');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 /**
  * Report Controller
- * Handles PDF report generation and download
+ * Handles PDF report generation and download for Web API
  */
+
+const mongoStorage = new MongoStorage();
 
 /**
  * GET /api/report/:scanId
@@ -17,27 +19,13 @@ const generateReport = asyncHandler(async (req, res) => {
 
   logger.info(`Generating PDF report for scan: ${scanId}`);
 
-  // Fetch scan from database
-  let scan = null;
-  try {
-    scan = await Scan.findById(scanId);
-  } catch (dbError) {
-    logger.warn(`Failed to retrieve scan from database for PDF: ${dbError.message}`);
-  }
-
-  // Fallback to in-memory cache
-  if (!scan) {
-    scan = Scan.findInMemory(scanId);
-  }
-
+  const scan = await mongoStorage.findById(scanId);
   if (!scan) {
     throw new AppError('Scan not found', 404);
   }
 
-  // Generate PDF
-  const pdfBuffer = await PDFGenerator.generateReport(scan);
+  const pdfBuffer = await PDFReporter.generateBuffer(scan);
 
-  // Set response headers for PDF download
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
@@ -45,9 +33,7 @@ const generateReport = asyncHandler(async (req, res) => {
   );
   res.setHeader('Content-Length', pdfBuffer.length);
 
-  // Send PDF
   res.send(pdfBuffer);
-
   logger.info(`PDF report generated successfully for scan: ${scanId}`);
 });
 
@@ -60,25 +46,13 @@ const previewReport = asyncHandler(async (req, res) => {
 
   logger.info(`Generating PDF preview for scan: ${scanId}`);
 
-  let scan = null;
-  try {
-    scan = await Scan.findById(scanId);
-  } catch (dbError) {
-    logger.warn(`Failed to retrieve scan from database for PDF preview: ${dbError.message}`);
-  }
-
-  // Fallback to in-memory cache
-  if (!scan) {
-    scan = Scan.findInMemory(scanId);
-  }
-
+  const scan = await mongoStorage.findById(scanId);
   if (!scan) {
     throw new AppError('Scan not found', 404);
   }
 
-  const pdfBuffer = await PDFGenerator.generateReport(scan);
+  const pdfBuffer = await PDFReporter.generateBuffer(scan);
 
-  // Set headers for inline display
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('Content-Length', pdfBuffer.length);

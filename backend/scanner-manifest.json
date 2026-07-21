@@ -1,0 +1,33 @@
+{
+  "scanner": "NoVuln",
+  "edition": "Enterprise AI SAST Platform",
+  "version": "2.0.0",
+  "schemaVersion": "1.0",
+  "description": "Enterprise AI-powered SAST Platform with repository scanning, CLI, Web UI, AI-assisted analysis, reporting, and DevSecOps integration.",
+  "activePlugins": [
+    "ASTPlugin",
+    "RegexPlugin"
+  ],
+  "availableStubs": [
+    "SemgrepPlugin",
+    "CodeQLPlugin"
+  ],
+  "supportedLanguages": [
+    "javascript",
+    "typescript",
+    "python",
+    "java",
+    "csharp",
+    "ruby",
+    "go",
+    "php"
+  ],
+  "capabilities": {
+    "astParsing": true,
+    "regexHeuristics": true,
+    "aiEnrichment": true,
+    "pdfReporting": true,
+    "jsonReporting": true,
+    "directoryScanning": true
+  }
+}

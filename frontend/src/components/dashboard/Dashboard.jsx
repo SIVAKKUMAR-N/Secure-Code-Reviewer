@@ -241,7 +241,7 @@ const Dashboard = ({ activeScan, setActiveScan, onScanComplete, backendHealth })
           </div>
           <h3 className="text-xl font-bold text-white mb-2">Ready for Security Review</h3>
           <p className="text-gray-400 text-sm leading-relaxed mb-6">
-            Paste your source code in the editor above, choose the language template, and click <strong className="text-white">Scan Code</strong>. ShieldAI will run regex-based static analysis matching OWASP patterns and leverage AI LLMs to enrich results with secure code fixes and exploit examples.
+            Paste your source code in the editor above, choose the language template, and click <strong className="text-white">Scan Code</strong>. NoVuln will run hybrid AST + Regex static analysis matching OWASP patterns and leverage AI LLMs to enrich results with secure code fixes and exploit examples.
           </p>
           <div className="flex justify-center gap-8 text-xs font-mono text-gray-500">
             <div>

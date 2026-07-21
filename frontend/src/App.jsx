@@ -78,9 +78,9 @@ function App() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-primary-400">
-              ShieldAI
+              NoVuln
             </h1>
-            <p className="text-xs text-gray-400 font-mono">Secure Code Reviewer</p>
+            <p className="text-xs text-gray-400 font-mono">Enterprise AI SAST Platform</p>
           </div>
         </div>
 

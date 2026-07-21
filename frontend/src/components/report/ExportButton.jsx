@@ -26,7 +26,7 @@ const ExportButton = ({ scanId }) => {
       const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `shieldai-report-${scanId.slice(-6)}.pdf`);
+      link.setAttribute('download', `novuln-report-${scanId.slice(-6)}.pdf`);
       document.body.appendChild(link);
       link.click();
       

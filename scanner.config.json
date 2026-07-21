@@ -1,0 +1,30 @@
+{
+  "ignore": [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "coverage",
+    "vendor",
+    ".env",
+    ".vscode",
+    ".idea",
+    "temp",
+    "tmp"
+  ],
+  "languages": [
+    "javascript",
+    "typescript",
+    "python",
+    "java",
+    "csharp",
+    "ruby",
+    "go",
+    "php"
+  ],
+  "ai": true,
+  "output": {
+    "json": "report.json",
+    "summary": "summary.json"
+  }
+}

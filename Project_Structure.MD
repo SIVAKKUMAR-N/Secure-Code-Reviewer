@@ -1,333 +1,200 @@
-# Secure Code Reviewer - Project Structure
+# NoVuln Enterprise AI SAST Platform - Project Structure
 
 ## Overview
-AI-powered web application for detecting security vulnerabilities in source code with real-time scanning, severity scoring, and secure fix suggestions.
+**NoVuln** is an AI-powered enterprise Static Application Security Testing (SAST) platform for detecting security vulnerabilities in source code across 8 programming languages. Supports both an **interactive Web Application** and a **standalone DevSecOps CLI pipeline (`novuln`)**.
 
 ## Tech Stack
+- **Core Engine**: Node.js, Babel AST Parser/Traverse, Regex Heuristics
 - **Frontend**: React 18, TailwindCSS, Monaco Editor
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB
-- **AI**: Gemini API / OpenAI API
-- **PDF**: PDFKit
+- **Backend API**: Node.js, Express.js
+- **CLI & Automation**: Commander.js (`novuln` CLI with `--ci` mode)
+- **Database**: MongoDB (Optional, with memory cache fallback)
+- **AI Layer**: Gemini API / OpenAI API (Enrichment only)
+- **Reporting**: PDFKit (PDF reports), Schema Version 1.0 JSON & Summary JSON
 
 ---
 
 ## Folder Structure
 
-```
-Secure Code reviewer/
-├── backend/                        # Backend Node.js application
-│   ├── src/
-│   │   ├── config/                # Configuration files
-│   │   │   ├── database.js        # MongoDB connection config
-│   │   │   ├── ai.config.js       # AI API keys and settings
-│   │   │   └── app.config.js      # General app configuration
-│   │   │
-│   │   ├── controllers/           # Request handlers
-│   │   │   ├── scanController.js  # Handles code scanning requests
-│   │   │   └── reportController.js# Handles report generation
-│   │   │
-│   │   ├── middleware/            # Express middleware
-│   │   │   ├── validator.js       # Input validation
-│   │   │   ├── rateLimiter.js     # Rate limiting
-│   │   │   └── errorHandler.js    # Global error handler
-│   │   │
-│   │   ├── models/                # MongoDB schemas
-│   │   │   ├── Scan.js            # Scan session model
-│   │   │   └── Vulnerability.js   # Vulnerability finding model
-│   │   │
-│   │   ├── routes/                # API routes
-│   │   │   ├── scanRoutes.js      # /api/scan routes
-│   │   │   ├── reportRoutes.js    # /api/report routes
-│   │   │   └── index.js           # Main router
-│   │   │
-│   │   ├── services/              # Business logic layer
-│   │   │   ├── ai/                # AI service layer
-│   │   │   │   ├── gemini.js      # Gemini API integration
-│   │   │   │   ├── openai.js      # OpenAI API integration
-│   │   │   ├── prompts.js         # AI prompt templates
-│   │   │   │   ├── index.js       # AI service interface
-│   │   │   │   ├── test-gemini-connection.js
-│   │   │   │   ├── test-parser.js
-│   │   │   │   └── test-python-enrichment.js
-│   │   │   └── scanner/           # Scanner engine
-│   │   │       ├── index.js       # Main scanner orchestrator
-│   │   │       ├── test-all-categories.js
-│   │   │       ├── test-ast-detection.js
-│   │   │       ├── test-multi-language.js
-│   │   │       └── test-python-scanner.js
-│   │   │       ├── ast/
-│   │   │       │   ├── parser.js
-│   │   │       │   ├── traversal.js
-│   │   │       │   ├── detectors/
-│   │   │       │   └── utils/
-│   │   │       └── regex/
-│   │   │           ├── regexScanner.js
-│   │   │           ├── patterns.js
-│   │   │           ├── detectors/
-│   │   │           └── utils/
-│   │   │
-│   │   ├── utils/                 # Utility functions
-│   │   │   ├── logger.js          # Logging utility
-│   │   │   ├── pdfGenerator.js    # PDF report generation
-│   │   │   └── owaspMapper.js     # OWASP Top 10 mapping
-│   │   │
-│   │   └── app.js                 # Express app setup
+```text
+Secure Code Reviewer/
+├── backend/                        # Backend Node.js application & CLI engine
+│   ├── bin/                        # CLI Executable scripts
+│   │   ├── novuln.js               # Primary CLI executable (#!/usr/bin/env node)
+│   │   └── scanner.js              # Backward-compatibility CLI executable
 │   │
-│   ├── tests/                     # Unit and integration tests
-│   │   ├── api.test.js
-│   │   └── scanner.test.js
+│   ├── src/
+│   │   ├── core/                   # Standalone Core SAST Engine
+│   │   │   ├── ConfigLoader.js     # Merges config files, CLI options & normalizes paths
+│   │   │   ├── DirectoryScanner.js # Recursive file walker & ignore pattern matcher
+│   │   │   ├── FindingNormalizer.js# Standardizes raw plugin severities & schemas
+│   │   │   ├── GitHelper.js        # Extracts git branch, commit hash & repo metadata
+│   │   │   ├── RiskAggregator.js   # Computes summary stats, CVSS & risk scores
+│   │   │   └── ScannerEngine.js    # Core SAST orchestrator
+│   │   │
+│   │   ├── plugins/                # Modular Detection Plugin Architecture
+│   │   │   ├── BasePlugin.js       # Abstract base plugin contract
+│   │   │   ├── PluginManager.js    # Registers & executes active plugins
+│   │   │   ├── ASTPlugin.js        # Babel AST structural injection engine
+│   │   │   ├── RegexPlugin.js      # Signature pattern detection engine
+│   │   │   ├── SemgrepPlugin.js    # Extensibility stub
+│   │   │   └── CodeQLPlugin.js     # Extensibility stub
+│   │   │
+│   │   ├── ai/                     # AI enrichment service layer
+│   │   │   ├── gemini.js           # Gemini API integration
+│   │   │   ├── openai.js           # OpenAI GPT integration
+│   │   │   ├── prompts.js          # Security prompt templates
+│   │   │   └── index.js            # Provider-agnostic AI interface
+│   │   │
+│   │   ├── reporters/              # Report Generators
+│   │   │   ├── ConsoleReporter.js  # Terminal stdout formatter
+│   │   │   ├── JSONReporter.js     # Generates report.json & summary.json (v1.0)
+│   │   │   └── PDFReporter.js      # Executive PDF document generator
+│   │   │
+│   │   ├── storage/                # Persistence Abstraction Layer
+│   │   │   ├── StorageAdapter.js   # Storage interface
+│   │   │   └── MongoStorage.js     # MongoDB adapter with memory cache fallback
+│   │   │
+│   │   ├── cli/                    # CLI execution layer
+│   │   │   ├── index.js            # Commander program setup
+│   │   │   └── commands/
+│   │   │       └── scanCommand.js  # `novuln scan <path>` action handler
+│   │   │
+│   │   ├── api/                    # Express Web API layer
+│   │   │   ├── controllers/
+│   │   │   │   ├── scanController.js   # Web API scan controller
+│   │   │   │   └── reportController.js # PDF download controller
+│   │   │   ├── middleware/         # Rate limiting, validation & error handlers
+│   │   │   └── routes/             # REST endpoint definitions
+│   │   │
+│   │   ├── services/               # Legacy service references & AST detectors
+│   │   │   └── scanner/            # AST visitors & Regex rules
+│   │   │
+│   │   └── tests/                  # Automated test suites
+│   │       ├── test-directory-scanner.js
+│   │       ├── test-plugin-manager.js
+│   │       └── test-cli-modes.js
 │   │
 │   ├── .env
-│   ├── .env.example               # Environment variables template
+│   ├── .env.example                # Environment variables template
 │   ├── .gitignore
 │   ├── package-lock.json
-│   ├── package.json
-│   └── server.js                  # Entry point
+│   ├── package.json                # Package manifest with CLI bin entry (novuln)
+│   └── server.js                   # Express REST API server entrypoint
 │
-├── frontend/                      # React frontend application
+├── frontend/                       # React frontend application
 │   ├── public/
-│   │   └── index.html
-│   │
 │   ├── src/
-│   │   ├── components/            # React components
-│   │   │   ├── editor/
-│   │   │   │   ├── CodeEditor.jsx    # Monaco editor wrapper
-│   │   │   │   └── LanguageSelector.jsx
-│   │   │   │
-│   │   │   ├── dashboard/
-│   │   │   │   ├── Dashboard.jsx     # Main dashboard
-│   │   │   │   ├── ScanResults.jsx   # Results display
-│   │   │   │   ├── VulnerabilityCard.jsx
-│   │   │   │   └── StatisticsPanel.jsx
-│   │   │   │
-│   │   │   └── report/
-│   │   │       ├── ReportViewer.jsx  # PDF report viewer
-│   │   │       └── ExportButton.jsx
-│   │   │
-│   │   ├── services/              # Frontend services
-│   │   │   ├── api.js             # API client
-│   │   │   └── storage.js         # Local storage utils
-│   │   │
-│   │   ├── utils/                 # Utility functions
-│   │   │   ├── formatters.js      # Data formatters
-│   │   │   └── validators.js      # Input validation
-│   │   │
-│   │   ├── styles/                # Global styles
-│   │   │   └── index.css          # Tailwind imports
-│   │   │
-│   │   ├── App.jsx                # Main App component
-│   │   ├── config.js              # Frontend config
-│   │   ├── index.js               # React entry point
-│   │   └── index.jsx
-│   │
-│   ├── .env
-│   │
-│   ├── .env.example
-│   ├── .gitignore
-│   ├── package-lock.json
+│   │   ├── components/             # React UI components (Editor, Dashboard, Reports)
+│   │   ├── services/               # Frontend API client
+│   │   └── App.jsx
 │   ├── package.json
-│   ├── postcss.config.js
-│   ├── tailwind.config.js
-│   └── vite.config.js             # Vite bundler config
+│   └── vite.config.js
 │
-├── docs/                          # Documentation
-│   ├── API.md                     # API documentation
-│   ├── DEPLOYMENT.md              # Deployment guide
-│   └── ARCHITECTURE.md            # Architecture details
+├── docs/                           # Standalone Product Documentation
+│   ├── api/
+│   │   └── API_SPECIFICATION.md    # REST API endpoints reference
+│   ├── architecture/
+│   │   └── ARCHITECTURE.md         # Engine architecture & component flow
+│   ├── cli/
+│   │   └── CLI_USAGE.md            # CLI usage, options, exit codes & workflows
+│   ├── config/
+│   │   └── CONFIGURATION.md        # Configuration file reference & ignore rules
+│   ├── developer/
+│   │   └── DEVELOPER_GUIDE.md      # Contributor setup & test runner guide
+│   ├── json-schema/
+│   │   └── REPORT_SCHEMA.md        # Schema v1.0 specifications for JSON reports
+│   └── plugins/
+│       └── PLUGIN_DEVELOPMENT.md   # Plugin interface & extension guide
 │
-├── .gitignore
-└── Project_Structure.MD
+├── scanner-manifest.json           # Engine capability manifest
+├── scanner.config.json             # Project configuration file
+├── .gitignore                      # Monorepo root ignore rules
+└── Project_Structure.MD            # Project structure documentation
 ```
 
 ---
 
-## Component Responsibilities
+## Architecture & Responsibilities
 
-### Backend Architecture
+### 1. Standalone Core Engine (`src/core/`)
+- **`ScannerEngine.js`**: Core orchestrator. Runs directory scanning, calls `PluginManager`, normalizes findings, aggregates risk metrics, and optionally applies AI enrichment. Operates completely independent of Express and MongoDB.
+- **`DirectoryScanner.js`**: Recursively walks folders, honors ignore paths (`node_modules`, `.git`, `dist`, `build`, `coverage`, `vendor`), maps extensions to supported languages, and retains relative file paths (`filePath`).
+- **`ConfigLoader.js`**: Validates, normalizes, and merges `scanner.config.json`, default settings, and CLI flag overrides.
+- **`FindingNormalizer.js`**: Standardizes severity levels (`Critical`, `High`, `Medium`, `Low`, `Info`) from any plugin output.
+- **`RiskAggregator.js`**: Computes summary statistics, CVSS scores, risk levels (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `MINIMAL`), and CWE/OWASP breakdowns.
+- **`GitHelper.js`**: Dynamically extracts Git branch, commit hash, and repository name.
 
-#### Scanner Engine (`services/scanner/`)
-**Purpose**: Core vulnerability detection using both AST and regex analysis
+### 2. Plugin Detection System (`src/plugins/`)
+- **`PluginManager.js`**: Manages registration, language filtering, and execution of active detection plugins.
+- **`ASTPlugin.js`**: Structural injection detector utilizing `@babel/parser` and `@babel/traverse` for JavaScript and TypeScript.
+- **`RegexPlugin.js`**: Pattern detector executing signature rules across 8 supported languages.
+- **`SemgrepPlugin.js` & `CodeQLPlugin.js`**: Architectural placeholders for future engine adapters.
 
-**Components**:
-- `index.js`: Orchestrates scanner execution and combines AST/regex findings
-- `ast/`: Language-aware parsing and traversal logic
-- `ast/parser.js`: Builds ASTs from source code
-- `ast/traversal.js`: Walks AST nodes to identify risky patterns
-- `ast/detectors/`: AST-based vulnerability detectors
-- `regex/`: Pattern-based scanning for code snippets
-- `regex/regexScanner.js`: Runs regex detectors against source code
-- `regex/patterns.js`: Regex patterns for vulnerability detection
-- `regex/detectors/`: Regex detector modules
-- `utils/`: Scanner helper utilities
+### 3. Output Reporters (`src/reporters/`)
+- **`JSONReporter.js`**: Generates `schemaVersion: "1.0"` output files with `NoVuln` branding:
+  - `report.json`: Comprehensive report containing scanner metadata, Git context, summary, findings, CWE/OWASP mappings.
+  - `summary.json`: Lightweight summary metrics for instant CI/CD consumption.
+- **`ConsoleReporter.js`**: Formats colored NoVuln summary tables and findings lists for terminal stdout.
+- **`PDFReporter.js`**: Generates executive PDF reports wrapping PDFKit.
 
-**How it works**:
-1. Receives code and language from controller
-2. Parses code into an AST when supported
-3. Runs AST detectors and regex detectors
-4. Each detector returns findings with line numbers and severity
-5. Aggregates results and applies enrichment
-6. Returns structured vulnerability data
-
-#### AI Service (`services/ai/`)
-**Purpose**: Enhance findings with AI-generated explanations and fixes
-
-**Components**:
-- `index.js`: Abstraction layer, provider-agnostic interface
-- `gemini.js`: Google Gemini API integration
-- `openai.js`: OpenAI GPT integration
-- `prompts.js`: Carefully crafted prompts for consistent output
-
-**How it works**:
-1. Receives vulnerability finding from scanner
-2. Constructs context-aware prompt with code snippet
-3. Calls AI API (Gemini or OpenAI based on config)
-4. Parses AI response into structured format
-5. Returns explanation, secure fix, and OWASP mapping
-
-### Frontend Architecture
-
-#### Editor Component (`components/editor/`)
-- Monaco Editor integration for syntax highlighting
-- Language selection dropdown
-- Line number highlighting for vulnerabilities
-- Real-time validation
-
-#### Dashboard Component (`components/dashboard/`)
-- Overview statistics (total vulns, severity breakdown)
-- Interactive vulnerability cards
-- Filtering and sorting capabilities
-- Export functionality
+### 4. CLI Execution Modes (`src/cli/`)
+- **Developer / Interactive Mode (Default)**: `novuln scan ./src` outputs formatted terminal stdout and **creates zero files on disk**.
+- **CI/CD Pipeline Mode (`--ci`)**: `novuln scan ./src --ci` outputs terminal stdout and **automatically generates `report.json` and `summary.json`**.
+- **Exit Codes**: `0` for scan completion; `1` for scanner runtime error.
 
 ---
 
 ## Data Flow
 
-### Scan Request Flow
-```
-1. User pastes code in Monaco Editor
-2. Frontend validates input
-3. POST /api/scan with { code, language }
-4. Backend middleware validates request
-5. Scanner Engine runs detectors
-6. AI Service generates explanations
-7. Results saved to MongoDB
-8. Response sent to frontend
-9. Dashboard displays results
+### 1. DevSecOps CLI Pipeline Scan Flow
+```text
+1. CLI invoked: novuln scan ./src --ci
+2. ConfigLoader merges defaults, scanner.config.json & CLI flags
+3. DirectoryScanner recursively locates source files in ./src
+4. PluginManager executes active plugins (ASTPlugin & RegexPlugin)
+5. FindingNormalizer standardizes all raw findings
+6. RiskAggregator computes summary stats, CVSS scores & risk levels
+7. AIService enriches findings (if enabled & key present)
+8. JSONReporter outputs schemaVersion: "1.0" report.json & summary.json with NoVuln branding
+9. ConsoleReporter prints terminal summary table
+10. Exit code 0 returned
 ```
 
-### Vulnerability Detection Flow
-```
-1. Scanner receives code
-2. Tokenizes/parses based on language
-3. Runs regex patterns against code
-4. Checks for dangerous functions
-5. Analyzes data flow patterns
-6. Calculates severity score
-7. Generates finding object
-8. AI enriches with explanation
-9. Returns complete vulnerability report
+### 2. Interactive Web API Scan Flow
+```text
+1. User submits code snippet via React Frontend (Monaco Editor)
+2. Express route POST /api/scan invokes scanController
+3. ScannerEngine scans code snippet
+4. MongoStorage saves scan document to DB (memory cache fallback)
+5. Response returned to frontend containing scanId, summary & vulnerabilities
+6. Frontend displays interactive findings, stats dashboard & PDF download option
 ```
 
 ---
 
-## Security Considerations
+## Development & Test Commands
 
-### Backend Security
-- **Input validation**: All user input sanitized
-- **Rate limiting**: Prevents abuse (10 requests/min per IP)
-- **API key protection**: Environment variables only
-- **Error handling**: No sensitive data in error messages
-- **CORS**: Configured for frontend domain only
+Run the automated test suites from the `backend/` directory:
 
-### Frontend Security
-- **Content Security Policy**: Strict CSP headers
-- **XSS prevention**: React's built-in escaping
-- **HTTPS only**: All API calls over HTTPS
-- **No secrets in client**: API calls proxied through backend
-
----
-
-## Database Schema
-
-### Scan Collection
-```javascript
-{
-  _id: ObjectId,
-  code: String,           // Submitted code
-  language: String,       // Programming language
-  timestamp: Date,
-  vulnerabilities: [      // Array of findings
-    {
-      type: String,
-      severity: String,   // Critical, High, Medium, Low
-      line: Number,
-      column: Number,
-      snippet: String,
-      message: String,
-      aiExplanation: String,
-      secureFix: String,
-      owaspCategory: String,
-      attackExample: String
-    }
-  ],
-  summary: {
-    total: Number,
-    critical: Number,
-    high: Number,
-    medium: Number,
-    low: Number
-  }
-}
-```
-
----
-
-## Development Workflow
-
-### Backend Development
 ```bash
 cd backend
-npm install
-cp .env.example .env
-# Add your API keys to .env
-npm run dev     # Starts with nodemon
-npm test        # Runs tests
+
+# Test Directory Scanner & Config Loader
+node src/tests/test-directory-scanner.js
+
+# Test Plugin Manager & Finding Normalizer
+node src/tests/test-plugin-manager.js
+
+# Test CLI Execution & Report Generators
+node src/tests/test-cli-modes.js
+
+# Test Structural AST Detection
+node src/services/scanner/test-ast-detection.js
+
+# Test 14 Vulnerability Categories
+node src/services/scanner/test-all-categories.js
+
+# Test Multi-Language Scans
+node src/services/scanner/test-multi-language.js
 ```
-
-### Frontend Development
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev     # Starts Vite dev server
-npm run build   # Production build
-```
-
----
-
-## Deployment Checklist
-
-- [ ] Environment variables configured
-- [ ] MongoDB connection string added
-- [ ] AI API keys added
-- [ ] CORS origins updated
-- [ ] Rate limiting configured
-- [ ] Frontend built for production
-- [ ] Backend process manager (PM2)
-- [ ] SSL certificates installed
-- [ ] Domain DNS configured
-- [ ] Error logging enabled
-
----
-
-## Next Steps
-
-1. **Backend Setup** - Install dependencies, configure database
-2. **Scanner Engine** - Implement detection rules
-3. **AI Integration** - Connect Gemini/OpenAI API
-4. **Frontend Setup** - Initialize React app
-5. **Integration** - Connect frontend to backend
-6. **Testing** - Unit and integration tests
-7. **Documentation** - API docs and user guide
-8. **Deployment** - Production deployment

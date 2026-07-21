@@ -1,109 +1,48 @@
-const ScannerEngine = require('../services/scanner');
-const AIService = require('../services/ai');
-const Scan = require('../models/Scan');
+const ScannerEngine = require('../core/ScannerEngine');
+const MongoStorage = require('../storage/MongoStorage');
 const logger = require('../utils/logger');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
  * Scan Controller
- * Handles code scanning and vulnerability detection
+ * Handles code scanning and vulnerability detection for Web API
  */
 
-// Initialize services
 const scanner = new ScannerEngine();
-let aiService = null;
-
-// Try to initialize AI service (may fail if no API key configured)
-try {
-  aiService = new AIService();
-} catch (error) {
-  logger.warn(`AI service not available: ${error.message}`);
-}
+const mongoStorage = new MongoStorage();
 
 /**
  * POST /api/scan
- * Scan code for security vulnerabilities
+ * Scan code snippet for security vulnerabilities
  */
 const scanCode = asyncHandler(async (req, res) => {
   const { code, language } = req.body;
   
-  logger.info(`Received scan request for ${language} code`);
+  logger.info(`Received Web API scan request for ${language} code`);
 
-  // Run vulnerability scanner
+  // Run vulnerability scanner with core engine
   const scanResults = await scanner.scan(code, language);
 
-  // Enrich vulnerabilities with AI (if available)
-  let enrichedVulnerabilities = scanResults.vulnerabilities;
-  let aiEnriched = false;
-  
-  if (aiService && scanResults.vulnerabilities.length > 0) {
-    try {
-      logger.info('Enriching vulnerabilities with AI analysis');
-      enrichedVulnerabilities = await aiService.enrichVulnerabilities(
-        scanResults.vulnerabilities,
-        code,
-        language
-      );
-      aiEnriched = true;
-    } catch (aiError) {
-      logger.error(`AI enrichment failed: ${aiError.message}`);
-      // Continue without AI enrichment
-    }
-  }
-
-  if (!aiEnriched) {
-    // Map static recommendations to the expected AI properties as a fallback
-    enrichedVulnerabilities = enrichedVulnerabilities.map(vuln => ({
-      ...vuln,
-      aiExplanation: vuln.aiExplanation || 'AI analysis temporarily unavailable',
-      secureFix: vuln.secureFix || vuln.recommendation || 'Unable to generate fix suggestion',
-      attackExample: vuln.attackExample || 'Unable to generate attack example',
-      recommendations: vuln.recommendations || [vuln.recommendation].filter(Boolean),
-    }));
-  }
-
-  // Save scan results to database
-  const scanDocument = new Scan({
+  // Persist to MongoDB (with memory cache fallback)
+  const savedDoc = await mongoStorage.save({
     code,
-    language,
+    language: scanResults.language,
     scanDuration: scanResults.scanDuration,
-    vulnerabilities: enrichedVulnerabilities,
-    aiProvider: aiService ? aiService.getProvider() : 'none',
-    ipAddress: req.ip,
+    findings: scanResults.vulnerabilities,
+    summary: scanResults.summary,
+    aiProvider: scanner.aiService ? scanner.aiService.getProvider() : 'none'
   });
 
-  // Calculate summary and set timestamps manually in case DB is offline/bypassed
-  scanDocument.summary = {
-    total: enrichedVulnerabilities.length,
-    critical: enrichedVulnerabilities.filter(v => v.severity === 'Critical').length,
-    high: enrichedVulnerabilities.filter(v => v.severity === 'High').length,
-    medium: enrichedVulnerabilities.filter(v => v.severity === 'Medium').length,
-    low: enrichedVulnerabilities.filter(v => v.severity === 'Low').length,
-    info: enrichedVulnerabilities.filter(v => v.severity === 'Info').length,
-  };
-  scanDocument.createdAt = new Date();
-  scanDocument.updatedAt = new Date();
-
-  // Always cache in memory
-  Scan.saveInMemory(scanDocument);
-
-  try {
-    await scanDocument.save();
-    logger.info(`Scan completed and saved to database with ID: ${scanDocument._id}`);
-  } catch (dbError) {
-    logger.warn(`Scan completed but failed to save to database: ${dbError.message}`);
-  }
-  
-  // Return response
+  // Return response in format expected by React Frontend
   res.status(200).json({
     success: true,
     data: {
-      scanId: scanDocument._id,
-      language: scanDocument.language,
-      summary: scanDocument.summary,
-      vulnerabilities: enrichedVulnerabilities,
+      scanId: savedDoc._id,
+      language: savedDoc.language,
+      summary: savedDoc.summary,
+      vulnerabilities: scanResults.vulnerabilities,
       scanDuration: scanResults.scanDuration,
-      timestamp: scanDocument.createdAt,
+      timestamp: savedDoc.createdAt,
     },
   });
 });
@@ -114,18 +53,7 @@ const scanCode = asyncHandler(async (req, res) => {
  */
 const getScan = asyncHandler(async (req, res) => {
   const { id } = req.params;
-
-  let scan = null;
-  try {
-    scan = await Scan.findById(id);
-  } catch (dbError) {
-    logger.warn(`Failed to retrieve scan from database: ${dbError.message}`);
-  }
-
-  // Fallback to in-memory cache
-  if (!scan) {
-    scan = Scan.findInMemory(id);
-  }
+  const scan = await mongoStorage.findById(id);
 
   if (!scan) {
     return res.status(404).json({
@@ -149,18 +77,11 @@ const getScan = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/scan/recent
- * Get recent scans (for dashboard statistics)
+ * Get recent scans
  */
 const getRecentScans = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
-
-  let recentScans = [];
-  try {
-    recentScans = await Scan.getRecentScans(limit);
-  } catch (error) {
-    logger.warn(`Failed to fetch recent scans from DB: ${error.message}`);
-    recentScans = Scan.getRecentFromMemory(limit);
-  }
+  const recentScans = await mongoStorage.getRecent(limit);
 
   res.status(200).json({
     success: true,
@@ -173,67 +94,32 @@ const getRecentScans = asyncHandler(async (req, res) => {
  * Get overall statistics
  */
 const getStatistics = asyncHandler(async (req, res) => {
-  try {
-    // Aggregate statistics from database
-    const totalScans = await Scan.countDocuments();
-    
-    const pipeline = [
-      {
-        $group: {
-          _id: null,
-          totalVulnerabilities: { $sum: '$summary.total' },
-          totalCritical: { $sum: '$summary.critical' },
-          totalHigh: { $sum: '$summary.high' },
-          totalMedium: { $sum: '$summary.medium' },
-          totalLow: { $sum: '$summary.low' },
-        }
-      }
-    ];
+  const recentScans = await mongoStorage.getRecent(1000);
+  const totalScans = recentScans.length;
+  const vulnerabilities = {
+    totalVulnerabilities: 0,
+    totalCritical: 0,
+    totalHigh: 0,
+    totalMedium: 0,
+    totalLow: 0,
+  };
+  
+  recentScans.forEach(scan => {
+    const summary = scan.summary || {};
+    vulnerabilities.totalVulnerabilities += summary.total || 0;
+    vulnerabilities.totalCritical += summary.critical || 0;
+    vulnerabilities.totalHigh += summary.high || 0;
+    vulnerabilities.totalMedium += summary.medium || 0;
+    vulnerabilities.totalLow += summary.low || 0;
+  });
 
-    const stats = await Scan.aggregate(pipeline);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        totalScans,
-        vulnerabilities: stats[0] || {
-          totalVulnerabilities: 0,
-          totalCritical: 0,
-          totalHigh: 0,
-          totalMedium: 0,
-          totalLow: 0,
-        },
-      },
-    });
-  } catch (error) {
-    logger.warn(`Failed to fetch statistics from DB, falling back to cache statistics: ${error.message}`);
-    const cachedScans = Scan.getRecentFromMemory(1000);
-    const totalScans = cachedScans.length;
-    const vulnerabilities = {
-      totalVulnerabilities: 0,
-      totalCritical: 0,
-      totalHigh: 0,
-      totalMedium: 0,
-      totalLow: 0,
-    };
-    
-    cachedScans.forEach(scan => {
-      const summary = scan.summary || {};
-      vulnerabilities.totalVulnerabilities += summary.total || 0;
-      vulnerabilities.totalCritical += summary.critical || 0;
-      vulnerabilities.totalHigh += summary.high || 0;
-      vulnerabilities.totalMedium += summary.medium || 0;
-      vulnerabilities.totalLow += summary.low || 0;
-    });
-
-    res.status(200).json({
-      success: true,
-      data: {
-        totalScans,
-        vulnerabilities,
-      },
-    });
-  }
+  res.status(200).json({
+    success: true,
+    data: {
+      totalScans,
+      vulnerabilities,
+    },
+  });
 });
 
 /**
